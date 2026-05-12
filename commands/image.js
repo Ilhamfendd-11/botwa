@@ -30,27 +30,32 @@ async function imageCommand(
     }
 
     const imageUrl =
-    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`
+    `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&seed=${Date.now()}`
 
     const response =
-    await axios.get(
+    await axios({
+
+      url:
       imageUrl,
-      {
-        responseType:
-        "arraybuffer"
-      }
-    )
+
+      method:
+      "GET",
+
+      responseType:
+      "arraybuffer",
+
+      timeout:
+      60000
+
+    })
 
     const media =
     new MessageMedia(
 
-      "image/png",
+      "image/jpeg",
 
       Buffer
-      .from(
-        response.data,
-        "binary"
-      )
+      .from(response.data)
       .toString("base64")
 
     )
@@ -72,8 +77,8 @@ async function imageCommand(
 
     console.log(err)
 
-    message.reply(
-      "gagal bikin gambar 😭"
+    await message.reply(
+      "server gambar lagi sakarat 😭"
     )
 
   }

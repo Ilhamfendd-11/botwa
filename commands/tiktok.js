@@ -2,9 +2,9 @@ const axios =
 require("axios")
 
 const {
-  TiktokDL
+  tiktok
 } = require(
-  "@tobyg74/tiktok-api-dl"
+  "btch-downloader"
 )
 
 async function tiktokCommand(
@@ -30,31 +30,38 @@ async function tiktokCommand(
     args[1]
 
     const data =
-    await TiktokDL(url)
+    await tiktok(url)
 
     const videoUrl =
-    data.result.video1
+    data.video
 
     const response =
-    await axios.get(
+    await axios({
+
+      url:
       videoUrl,
-      {
-        responseType:
-        "arraybuffer"
-      }
-    )
+
+      method:
+      "GET",
+
+      responseType:
+      "arraybuffer",
+
+      timeout:
+      60000
+
+    })
 
     const media = {
+
       mimetype:
       "video/mp4",
 
       data:
       Buffer
-      .from(
-        response.data,
-        "binary"
-      )
+      .from(response.data)
       .toString("base64")
+
     }
 
     await client.sendMessage(
@@ -74,8 +81,8 @@ async function tiktokCommand(
 
     console.log(err)
 
-    message.reply(
-      "gagal download tiktok 😭"
+    await message.reply(
+      "tiktoknya ngambek 😭"
     )
 
   }
