@@ -1,3 +1,6 @@
+const axios =
+require("axios")
+
 const {
   MessageMedia
 } = require(
@@ -29,9 +32,28 @@ async function imageCommand(
     const imageUrl =
     `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`
 
+    const response =
+    await axios.get(
+      imageUrl,
+      {
+        responseType:
+        "arraybuffer"
+      }
+    )
+
     const media =
-    await MessageMedia
-    .fromUrl(imageUrl)
+    new MessageMedia(
+
+      "image/png",
+
+      Buffer
+      .from(
+        response.data,
+        "binary"
+      )
+      .toString("base64")
+
+    )
 
     await client.sendMessage(
 
