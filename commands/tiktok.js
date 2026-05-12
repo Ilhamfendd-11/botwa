@@ -1,11 +1,6 @@
 const axios =
 require("axios")
 
-const btch =
-require(
-  "btch-downloader"
-)
-
 async function tiktokCommand(
   message,
   client,
@@ -28,11 +23,25 @@ async function tiktokCommand(
     const url =
     args[1]
 
-    const data =
-    await btch.tiktok(url)
+    // API tiktok
+    const api =
+    `https://tikwm.com/api/?url=${encodeURIComponent(url)}`
+
+    const result =
+    await axios.get(api)
 
     const videoUrl =
-    data.video
+    result.data
+    .data
+    .play
+
+    if (!videoUrl) {
+
+      return message.reply(
+        "gagal ambil video 😭"
+      )
+
+    }
 
     const response =
     await axios({
@@ -81,7 +90,7 @@ async function tiktokCommand(
     console.log(err)
 
     await message.reply(
-      "tiktoknya ngambek 😭"
+      "tiktoknya error 😭"
     )
 
   }
