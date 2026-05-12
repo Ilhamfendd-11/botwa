@@ -1,9 +1,8 @@
 const axios =
 require("axios")
 
-const {
-  tiktok
-} = require(
+const btch =
+require(
   "btch-downloader"
 )
 
@@ -30,7 +29,7 @@ async function tiktokCommand(
     args[1]
 
     const data =
-    await tiktok(url)
+    await btch.tiktok(url)
 
     const videoUrl =
     data.video
