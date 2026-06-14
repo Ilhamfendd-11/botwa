@@ -12,7 +12,8 @@ app.get("/", (req, res) => {
 app.listen(3000)
 
 const {
-  Client
+  Client,
+  LocalAuth
 } = require("whatsapp-web.js")
 
 const QRCode =
@@ -32,6 +33,8 @@ require("./commands/image")
 
 const client =
 new Client({
+
+  authStrategy: new LocalAuth(),
 
  puppeteer: {
 
