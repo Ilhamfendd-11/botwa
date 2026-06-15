@@ -1,7 +1,6 @@
 require("dotenv").config()
 
-const express =
-require("express")
+const express = require("express")
 
 const app = express()
 
@@ -9,7 +8,10 @@ app.get("/", (req, res) => {
   res.send("bot alive")
 })
 
-app.listen(3000)
+const PORT = process.env.PORT || 3000
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`)
+})
 
 const {
   Client,
@@ -36,20 +38,19 @@ new Client({
 
   authStrategy: new LocalAuth(),
 
- puppeteer: {
-
-  headless: true,
-
-  executablePath:
-  process.env.RAILWAY_ENVIRONMENT
-  ? "/usr/bin/chromium"
-  : undefined,
-
+  puppeteer: {
+    headless: true,
+    executablePath: process.env.RAILWAY_ENVIRONMENT ? "/usr/bin/chromium" : undefined,
     args: [
       "--no-sandbox",
-      "--disable-setuid-sandbox"
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--single-process",
+      "--disable-gpu"
     ]
-
   }
 
 })
