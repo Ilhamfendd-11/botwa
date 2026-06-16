@@ -40,43 +40,60 @@ const instagramCommand =
 require("./commands/instagram")
 
 // ======================
-// HAPUS SINGLETON LOCK (REKURSIF)
-// (fix Railway redeploy error)
+// SESSION MANAGEMENT
 // ======================
 
-const LOCK_FILES = [
-  "SingletonLock",
-  "SingletonSocket",
-  "SingletonCookie"
-]
+const SESSION_DIR =
+path.join(process.cwd(), ".wwebjs_auth")
 
-function deleteLockFilesRecursive(dir) {
-  if (!fs.existsSync(dir)) return
+const SESSION_OK_FILE =
+path.join(SESSION_DIR, ".session_ok")
+
+// Jika session ada tapi belum pernah berhasil init
+// (tidak ada marker .session_ok) → session corrupt
+// Hapus seluruh session agar start fresh
+if (
+  fs.existsSync(SESSION_DIR) &&
+  !fs.existsSync(SESSION_OK_FILE)
+) {
+  console.log("Session corrupt / belum pernah ready, hapus dan mulai fresh...")
   try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name)
-      if (entry.isDirectory()) {
-        deleteLockFilesRecursive(fullPath)
-      } else if (LOCK_FILES.includes(entry.name)) {
-        try {
-          fs.unlinkSync(fullPath)
-          console.log("Deleted lock file:", fullPath)
-        } catch (e) {
-          console.log("Could not delete:", fullPath, e.message)
+    fs.rmSync(SESSION_DIR, { recursive: true, force: true })
+    console.log("Session dihapus, bot akan minta scan QR")
+  } catch (e) {
+    console.log("Gagal hapus session:", e.message)
+  }
+} else {
+  // Session valid, hanya hapus lock files
+  const LOCK_FILES = ["SingletonLock", "SingletonSocket", "SingletonCookie"]
+
+  function deleteLockFilesRecursive(dir) {
+    if (!fs.existsSync(dir)) return
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          deleteLockFilesRecursive(fullPath)
+        } else if (LOCK_FILES.includes(entry.name)) {
+          try {
+            fs.unlinkSync(fullPath)
+            console.log("Deleted lock file:", fullPath)
+          } catch (e) {
+            console.log("Could not delete:", fullPath, e.message)
+          }
         }
       }
+    } catch (e) {
+      console.log("Error scanning dir:", dir, e.message)
     }
-  } catch (e) {
-    console.log("Error scanning dir:", dir, e.message)
   }
+
+  deleteLockFilesRecursive(SESSION_DIR)
+  console.log("Lock cleanup done")
 }
 
-deleteLockFilesRecursive(
-  path.join(process.cwd(), ".wwebjs_auth")
-)
-
-console.log("Lock cleanup done, starting bot...")
+console.log("Starting bot...")
 
 const client =
 new Client({
@@ -140,9 +157,18 @@ client.on(
   "ready",
   () => {
 
-    console.log(
-      "BOT READY"
-    )
+    console.log("BOT READY")
+
+    // Tulis marker: session berhasil init
+    // Startup berikutnya tidak akan hapus session
+    try {
+      if (!fs.existsSync(SESSION_DIR)) {
+        fs.mkdirSync(SESSION_DIR, { recursive: true })
+      }
+      fs.writeFileSync(SESSION_OK_FILE, new Date().toISOString())
+    } catch (e) {
+      console.log("Gagal tulis session_ok:", e.message)
+    }
 
   }
 )
