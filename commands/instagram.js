@@ -19,6 +19,27 @@ function extractShortcode(url) {
 }
 
 // ===================================
+// Helper: decode escaped JSON strings in HTML
+// ===================================
+
+function decodeEscapedUrl(raw) {
+  let cleaned = raw
+  if (cleaned.endsWith("\\")) {
+    cleaned = cleaned.slice(0, -1)
+  }
+  try {
+    cleaned = JSON.parse('"' + cleaned + '"')
+  } catch (e) {
+    // fallback
+  }
+  cleaned = cleaned.replace(/\\([\/])/g, "$1")
+  cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, grp) => {
+    return String.fromCharCode(parseInt(grp, 16))
+  })
+  return cleaned
+}
+
+// ===================================
 // Method 1: Scrape Instagram Embed Page
 // (tidak butuh API pihak ketiga)
 // ===================================
@@ -48,20 +69,18 @@ async function fetchFromIgEmbed(url) {
 
   const html = res.data
 
-  // Coba ambil video URL
-  const videoMatch = html.match(/"video_url":"([^"]+)"/)
+  // Coba ambil video URL (mendukung quote & slash escaped)
+  const videoMatch = html.match(/\\?"video_url\\?":\\?"([^"]+?)\\?"/)
   if (videoMatch) {
-    const videoUrl =
-    videoMatch[1].replace(/\\u0026/g, "&")
+    const videoUrl = decodeEscapedUrl(videoMatch[1])
     console.log("IG embed: video found")
     return [{ url: videoUrl, type: "video" }]
   }
 
-  // Coba ambil foto URL
-  const imageMatch = html.match(/"display_url":"([^"]+)"/)
+  // Coba ambil foto URL (mendukung quote & slash escaped)
+  const imageMatch = html.match(/\\?"display_url\\?":\\?"([^"]+?)\\?"/)
   if (imageMatch) {
-    const imageUrl =
-    imageMatch[1].replace(/\\u0026/g, "&")
+    const imageUrl = decodeEscapedUrl(imageMatch[1])
     console.log("IG embed: image found")
     return [{ url: imageUrl, type: "image" }]
   }
@@ -75,9 +94,9 @@ async function fetchFromIgEmbed(url) {
 // ===================================
 
 const COBALT_INSTANCES = [
+  "https://rue-cobalt.xenon.zone",
   "https://sunny.imput.net",
-  "https://cobalt.api.timelessnesses.me",
-  "https://cobalt.tools"
+  "https://cobalt.api.timelessnesses.me"
 ]
 
 async function fetchFromCobalt(url) {
