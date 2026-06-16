@@ -7,6 +7,137 @@ const {
   "whatsapp-web.js"
 )
 
+// ===================================
+// API list dengan fallback
+// ===================================
+
+async function fetchFromCobalt(url) {
+
+  // Cobalt adalah open-source & mendukung Instagram
+  const cobaltUrl =
+  "https://dwnld.nichindi.uk"
+
+  const res = await axios.post(
+    cobaltUrl,
+    { url: url },
+    {
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      timeout: 15000
+    }
+  )
+
+  const data = res.data
+
+  if (
+    data.status === "stream" ||
+    data.status === "redirect" ||
+    data.status === "tunnel"
+  ) {
+    return [{
+      url: data.url,
+      type: data.url.includes(".mp4")
+        ? "video"
+        : "image"
+    }]
+  }
+
+  if (data.status === "picker") {
+    return data.picker.map(item => ({
+      url: item.url,
+      type: item.type || "image"
+    }))
+  }
+
+  return null
+
+}
+
+async function fetchFromSaveig(url) {
+
+  const api =
+  `https://api.saveig.app/api/ajaxSearch`
+
+  const res = await axios.post(
+    api,
+    new URLSearchParams({
+      q: url,
+      t: "media",
+      lang: "en"
+    }),
+    {
+      headers: {
+        "Content-Type":
+        "application/x-www-form-urlencoded"
+      },
+      timeout: 15000
+    }
+  )
+
+  const html = res.data.data || ""
+
+  // Ambil semua URL video/foto dari response
+  const videoMatches =
+  [...html.matchAll(
+    /href="(https:\/\/[^"]+\.mp4[^"]*)"/g
+  )]
+
+  const imageMatches =
+  [...html.matchAll(
+    /href="(https:\/\/[^"]+\.(jpg|jpeg|png|webp)[^"]*)"/g
+  )]
+
+  const results = []
+
+  for (const m of videoMatches) {
+    results.push({ url: m[1], type: "video" })
+  }
+
+  for (const m of imageMatches) {
+    results.push({ url: m[1], type: "image" })
+  }
+
+  return results.length > 0
+    ? results
+    : null
+
+}
+
+async function fetchFromSnapinsta(url) {
+
+  // SnapInsta API
+  const res = await axios.post(
+    "https://snapinsta.app/action_download.php",
+    new URLSearchParams({ url }),
+    {
+      headers: {
+        "Content-Type":
+        "application/x-www-form-urlencoded",
+        "Referer": "https://snapinsta.app/",
+        "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      },
+      timeout: 15000
+    }
+  )
+
+  const data = res.data
+
+  if (!data || !data.url) return null
+
+  return [{
+    url: data.url,
+    type: "video"
+  }]
+
+}
+
+// ===================================
+// Main command
+// ===================================
+
 async function instagramCommand(
   message,
   client,
@@ -29,10 +160,7 @@ async function instagramCommand(
     const url =
     args[1]
 
-    // Validasi URL Instagram
-    if (
-      !url.includes("instagram.com")
-    ) {
+    if (!url.includes("instagram.com")) {
 
       return message.reply(
         "link harus dari instagram bang 😭"
@@ -44,57 +172,50 @@ async function instagramCommand(
       "tunggu bentar bang, lagi diproses... ⏳"
     )
 
-    // Gunakan API instagramdl via getmyfling / snapinsta
-    const api =
-    `https://api.tiklydown.eu.org/api/instagram?url=${encodeURIComponent(url)}`
+    // Coba satu per satu API
+    let medias = null
 
-    const result =
-    await axios.get(api, {
-      timeout: 20000
-    })
+    try {
+      console.log("Mencoba Cobalt...")
+      medias = await fetchFromCobalt(url)
+    } catch (e) {
+      console.log("Cobalt gagal:", e.message)
+    }
 
-    const data =
-    result.data
+    if (!medias || medias.length === 0) {
+      try {
+        console.log("Mencoba SaveIG...")
+        medias = await fetchFromSaveig(url)
+      } catch (e) {
+        console.log("SaveIG gagal:", e.message)
+      }
+    }
 
-    if (
-      !data ||
-      !data.medias ||
-      data.medias.length === 0
-    ) {
+    if (!medias || medias.length === 0) {
+      try {
+        console.log("Mencoba SnapInsta...")
+        medias = await fetchFromSnapinsta(url)
+      } catch (e) {
+        console.log("SnapInsta gagal:", e.message)
+      }
+    }
+
+    if (!medias || medias.length === 0) {
 
       return message.reply(
-        "gagal ambil konten ig 😭\npastikan link valid & postingan tidak private ya bang"
+        "gagal ambil konten ig 😭\npostingan mungkin private atau semua server lagi down"
       )
 
     }
 
-    const medias =
-    data.medias
+    // Kirim semua media
+    for (let i = 0; i < medias.length; i++) {
 
-    // Kirim semua media (foto/video) dari postingan
-    for (
-      let i = 0;
-      i < medias.length;
-      i++
-    ) {
-
-      const item =
-      medias[i]
-
-      const mediaUrl =
-      item.url
+      const item = medias[i]
 
       const isVideo =
       item.type === "video" ||
-      (
-        item.url &&
-        item.url.includes(".mp4")
-      )
-
-      const ext =
-      isVideo
-        ? "mp4"
-        : "jpg"
+      (item.url && item.url.includes(".mp4"))
 
       const filename =
       isVideo
@@ -105,7 +226,7 @@ async function instagramCommand(
 
         const media =
         await MessageMedia.fromUrl(
-          mediaUrl,
+          item.url,
           {
             unsafeMime: true,
             filename: filename
@@ -114,7 +235,7 @@ async function instagramCommand(
 
         const caption =
         i === 0
-          ? `nih bang 😭🔥\n${data.caption ? data.caption.slice(0, 200) : ""}`
+          ? "nih bang 😭🔥"
           : ""
 
         await client.sendMessage(
@@ -139,10 +260,10 @@ async function instagramCommand(
 
   } catch (err) {
 
-    console.log("IG Error:", err)
+    console.log("IG Error:", err.message)
 
     await message.reply(
-      "ignya error 😭\nmungkin link salah, postingan private, atau server lagi gangguan"
+      "ignya error 😭\ncoba lagi ntar bang"
     )
 
   }
