@@ -1,8 +1,8 @@
 FROM node:20
 
-# Install chromium dependencies
+# Install shared libraries yang dibutuhkan Chromium
+# (@sparticuz/chromium sudah include binary, tapi butuh libs ini)
 RUN apt-get update && apt-get install -y \
-    chromium \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -26,8 +26,8 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Biarkan puppeteer download Chromium-nya sendiri (versi yang kompatibel)
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
+# Skip download chromium dari puppeteer karena kita pakai @sparticuz/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 RUN npm install
 
