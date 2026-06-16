@@ -86,7 +86,6 @@ new Client({
   puppeteer: {
     headless: true,
     protocolTimeout: 90000,
-    executablePath: process.env.RAILWAY_ENVIRONMENT ? "/usr/bin/chromium" : undefined,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -251,4 +250,29 @@ client.on(
   }
 )
 
-client.initialize()
+// ======================
+// GLOBAL ERROR HANDLER
+// ======================
+
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT]:", err.message)
+  process.exit(1)
+})
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED REJECTION]:", reason)
+  process.exit(1)
+})
+
+// ======================
+// INIT BOT
+// ======================
+
+console.log("Launching Chromium...")
+
+client.initialize().then(() => {
+  console.log("client.initialize() selesai")
+}).catch((err) => {
+  console.error("client.initialize() GAGAL:", err.message)
+  process.exit(1)
+})
