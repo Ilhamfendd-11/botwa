@@ -80,7 +80,7 @@ async function aiCommand(
     const response =
     await axios.post(
 
-      "https://openrouter.ai/api/v1/chat/completions",
+      `${config.API_BASE_URL}/chat/completions`,
 
       {
 
