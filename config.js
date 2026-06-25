@@ -3,7 +3,7 @@ module.exports = {
   BOT_NAME: "!ai",
 
   AI_MODEL:
-    "deepseek/deepseek-v4-flash",
+    "google/gemini-2.5-flash:free",
 
   API_KEY:
     process.env.API_KEY
