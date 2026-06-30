@@ -116,12 +116,22 @@ process.on("unhandledRejection", (reason) => {
     // CHROMIUM SETUP
     // ----------------------
 
-    console.log("Getting Chromium executable path...")
-
-    // @sparticuz/chromium: binary khusus untuk container/serverless
-    const executablePath = await chromium.executablePath()
-
-    console.log("Chromium path:", executablePath)
+    let executablePath = ""
+    if (process.platform === "win32") {
+      // Di Windows, cari Chrome lokal atau biarkan kosong agar Puppeteer mendeteksi sendiri
+      executablePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+      if (!fs.existsSync(executablePath)) {
+        executablePath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+      }
+      if (!fs.existsSync(executablePath)) {
+        executablePath = "" // Biarkan Puppeteer mencari default-nya
+      }
+      console.log("Running on Windows. Using Chrome path:", executablePath || "default Puppeteer Chrome")
+    } else {
+      console.log("Getting Chromium executable path via @sparticuz/chromium...")
+      executablePath = await chromium.executablePath()
+      console.log("Chromium path:", executablePath)
+    }
 
     // ----------------------
     // WHATSAPP CLIENT
@@ -138,10 +148,10 @@ process.on("unhandledRejection", (reason) => {
       },
 
       puppeteer: {
-        executablePath,
+        ...(executablePath ? { executablePath } : {}),
         headless: true,
         args: [
-          ...chromium.args,
+          ...(process.platform !== "win32" ? chromium.args : []),
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
@@ -183,6 +193,38 @@ process.on("unhandledRejection", (reason) => {
         )
       } catch (e) {
         console.log("Gagal tulis session_ok:", e.message)
+      }
+    })
+
+    // ======================
+    // AUTH FAILURE
+    // ======================
+
+    client.on("auth_failure", (msg) => {
+      console.error("AUTHENTICATION FAILURE:", msg)
+      try {
+        if (fs.existsSync(SESSION_OK_FILE)) {
+          fs.unlinkSync(SESSION_OK_FILE)
+          console.log("session_ok dihapus karena auth_failure (session tidak valid)")
+        }
+      } catch (e) {
+        console.log("Gagal hapus session_ok di auth_failure:", e.message)
+      }
+    })
+
+    // ======================
+    // DISCONNECTED
+    // ======================
+
+    client.on("disconnected", (reason) => {
+      console.warn("CLIENT DISCONNECTED:", reason)
+      try {
+        if (fs.existsSync(SESSION_OK_FILE)) {
+          fs.unlinkSync(SESSION_OK_FILE)
+          console.log("session_ok dihapus karena disconnected (keluar dari bot)")
+        }
+      } catch (e) {
+        console.log("Gagal hapus session_ok di disconnected:", e.message)
       }
     })
 
@@ -239,18 +281,7 @@ process.on("unhandledRejection", (reason) => {
       console.log("client.initialize() selesai")
     }).catch((err) => {
       console.error("client.initialize() GAGAL:", err.message)
-
-      // Hapus session_ok agar next restart mulai fresh
-      // (cegah loop crash dari session corrupt)
-      try {
-        if (fs.existsSync(SESSION_OK_FILE)) {
-          fs.unlinkSync(SESSION_OK_FILE)
-          console.log("session_ok dihapus, next restart akan scan QR ulang")
-        }
-      } catch (e) {
-        console.log("Gagal hapus session_ok:", e.message)
-      }
-
+      console.log("Menghentikan proses bot tanpa menghapus session_ok agar bisa dicoba kembali saat restart.")
       process.exit(1)
     })
 
