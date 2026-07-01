@@ -55,62 +55,36 @@ process.on("unhandledRejection", (reason) => {
     const SESSION_DIR =
       path.join(process.cwd(), ".wwebjs_auth")
 
-    const SESSION_OK_FILE =
-      path.join(SESSION_DIR, ".session_ok")
+    // Hapus Chromium lock files jika ada agar Puppeteer tidak stuck saat restart
+    const LOCK_FILES = [
+      "SingletonLock",
+      "SingletonSocket",
+      "SingletonCookie"
+    ]
 
-    // Jika session ada tapi belum pernah berhasil
-    // (tidak ada .session_ok) → hapus ISI session
-    // Catatan: tidak bisa rmdir mount point Railway,
-    // jadi hapus subfolder session-nya saja
-    if (
-      fs.existsSync(SESSION_DIR) &&
-      !fs.existsSync(SESSION_OK_FILE)
-    ) {
-      console.log("Session belum valid, hapus session lama...")
+    function deleteLocks(dir) {
+      if (!fs.existsSync(dir)) return
       try {
-        const items = fs.readdirSync(SESSION_DIR)
-        for (const item of items) {
-          if (item === ".session_ok") continue
-          const itemPath = path.join(SESSION_DIR, item)
-          fs.rmSync(itemPath, { recursive: true, force: true })
-          console.log("Deleted:", itemPath)
-        }
-        console.log("Session lama dihapus, bot akan minta scan QR")
-      } catch (e) {
-        console.log("Gagal hapus session:", e.message)
-      }
-    } else {
-      // Session valid, hanya hapus Chromium lock files
-      const LOCK_FILES = [
-        "SingletonLock",
-        "SingletonSocket",
-        "SingletonCookie"
-      ]
-
-      function deleteLocks(dir) {
-        if (!fs.existsSync(dir)) return
-        try {
-          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            const fullPath = path.join(dir, entry.name)
-            if (entry.isDirectory()) {
-              deleteLocks(fullPath)
-            } else if (LOCK_FILES.includes(entry.name)) {
-              try {
-                fs.unlinkSync(fullPath)
-                console.log("Deleted lock:", fullPath)
-              } catch (e) {
-                console.log("Lock delete failed:", e.message)
-              }
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const fullPath = path.join(dir, entry.name)
+          if (entry.isDirectory()) {
+            deleteLocks(fullPath)
+          } else if (LOCK_FILES.includes(entry.name)) {
+            try {
+              fs.unlinkSync(fullPath)
+              console.log("Deleted lock:", fullPath)
+            } catch (e) {
+              console.log("Lock delete failed:", e.message)
             }
           }
-        } catch (e) {
-          console.log("Lock scan error:", e.message)
         }
+      } catch (e) {
+        console.log("Lock scan error:", e.message)
       }
-
-      deleteLocks(SESSION_DIR)
-      console.log("Lock cleanup done")
     }
+
+    deleteLocks(SESSION_DIR)
+    console.log("Lock cleanup done")
 
     // ----------------------
     // CHROMIUM SETUP
@@ -164,6 +138,23 @@ process.on("unhandledRejection", (reason) => {
 
     })
 
+    // ----------------------
+    // GRACEFUL SHUTDOWN
+    // ----------------------
+    const handleShutdown = async (signal) => {
+      console.log(`Received ${signal}. Shutting down client...`)
+      try {
+        await client.destroy()
+        console.log("Client destroyed successfully.")
+      } catch (e) {
+        console.error("Error destroying client:", e.message)
+      }
+      process.exit(0)
+    }
+
+    process.on("SIGINT", () => handleShutdown("SIGINT"))
+    process.on("SIGTERM", () => handleShutdown("SIGTERM"))
+
     // ======================
     // QR
     // ======================
@@ -180,20 +171,6 @@ process.on("unhandledRejection", (reason) => {
 
     client.on("ready", () => {
       console.log("BOT READY")
-
-      // Tulis marker: session berhasil init
-      // Startup berikutnya tidak akan hapus session
-      try {
-        if (!fs.existsSync(SESSION_DIR)) {
-          fs.mkdirSync(SESSION_DIR, { recursive: true })
-        }
-        fs.writeFileSync(
-          SESSION_OK_FILE,
-          new Date().toISOString()
-        )
-      } catch (e) {
-        console.log("Gagal tulis session_ok:", e.message)
-      }
     })
 
     // ======================
@@ -202,14 +179,6 @@ process.on("unhandledRejection", (reason) => {
 
     client.on("auth_failure", (msg) => {
       console.error("AUTHENTICATION FAILURE:", msg)
-      try {
-        if (fs.existsSync(SESSION_OK_FILE)) {
-          fs.unlinkSync(SESSION_OK_FILE)
-          console.log("session_ok dihapus karena auth_failure (session tidak valid)")
-        }
-      } catch (e) {
-        console.log("Gagal hapus session_ok di auth_failure:", e.message)
-      }
     })
 
     // ======================
@@ -218,14 +187,6 @@ process.on("unhandledRejection", (reason) => {
 
     client.on("disconnected", (reason) => {
       console.warn("CLIENT DISCONNECTED:", reason)
-      try {
-        if (fs.existsSync(SESSION_OK_FILE)) {
-          fs.unlinkSync(SESSION_OK_FILE)
-          console.log("session_ok dihapus karena disconnected (keluar dari bot)")
-        }
-      } catch (e) {
-        console.log("Gagal hapus session_ok di disconnected:", e.message)
-      }
     })
 
     // ======================
