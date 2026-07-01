@@ -71,69 +71,45 @@ async function aiCommand(
   let memory = loadMemory()
   const history = memory[chatId] || []
 
+  // Map history to Gemini format (user -> user, assistant -> model)
+  const geminiHistory = history.map(item => ({
+    role: item.role === "assistant" ? "model" : "user",
+    parts: [{ text: item.content }]
+  }))
+
   // ======================
-  // AI
+  // AI (GEMINI 2.5 FLASH)
   // ======================
 
   try {
 
-    const response =
-    await axios.post(
-
-      `${config.API_BASE_URL}/chat/completions`,
-
+    const response = await axios.post(
+      `${config.API_BASE_URL}/models/${config.AI_MODEL}:generateContent?key=${config.API_KEY}`,
       {
-
-        model:
-        config.AI_MODEL,
-
-        max_tokens: 1000,
-
-        messages: [
-
-          {
-            role: "system",
-            content:
-            personality
-          },
-
-          ...history,
-
+        contents: [
+          ...geminiHistory,
           {
             role: "user",
-            content: `[${username}]: ${cleanText}`
+            parts: [{ text: `[${username}]: ${cleanText}` }]
           }
-
-        ]
-
-      },
-
-      {
-
-        headers: {
-
-          Authorization:
-          `Bearer ${config.API_KEY}`,
-
-          "HTTP-Referer":
-          "https://localhost",
-
-          "X-Title":
-          "TongkronganBot",
-
-          "Content-Type":
-          "application/json"
-
+        ],
+        systemInstruction: {
+          parts: [{ text: personality }]
+        },
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 1.0
         }
-
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        },
+        timeout: 15000 // Gemini sangat cepat, 15 detik sudah sangat cukup
       }
-
     )
 
-    let reply =
-    response.data
-    .choices[0]
-    .message.content
+    let reply = response.data.candidates[0].content.parts[0].text
 
     // bersihin respon aneh
     reply = reply
@@ -167,17 +143,11 @@ async function aiCommand(
 
   } catch (err) {
 
-    console.log(
-    JSON.stringify(
-      err.response?.data,
-      null,
-      2
-    ) || err.message)
+    console.error("Gemini API Error:", err.response?.data || err.message)
 
     await message.reply(
       "otak gw ngefreeze 💀"
     )
-    console.log(err)
 
   }
 

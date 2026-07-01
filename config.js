@@ -1,6 +1,6 @@
 module.exports = {
   BOT_NAME: "!ai",
-  AI_MODEL: "DeepSeek-V3", // atau "DeepSeek-R1"
+  AI_MODEL: "gemini-2.5-flash",
   API_KEY: process.env.API_KEY,
-  API_BASE_URL: "https://api.sambanova.ai/v1"
+  API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta"
 }
