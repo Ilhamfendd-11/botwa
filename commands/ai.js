@@ -1,7 +1,9 @@
 const axios = require("axios")
 
-const personality =
-require("../utils/personality")
+const {
+  bacotPersonality,
+  normalPersonality
+} = require("../utils/personality")
 
 const {
   loadMemory,
@@ -22,12 +24,22 @@ async function aiCommand(
   const lower =
   text.toLowerCase()
 
-  // trigger
-  if (
-    !lower.includes(
-      config.BOT_NAME
-    )
-  ) return
+  // Cek mode: bacot atau normal
+  const isBacot = lower.includes(config.BOT_NAME_BACOT)
+  const isNormal = lower.includes(config.BOT_NAME)
+
+  // Kalau tidak ada trigger sama sekali, skip
+  if (!isBacot && !isNormal) return
+
+  // Pilih personality sesuai mode
+  const personality = isBacot
+    ? bacotPersonality
+    : normalPersonality
+
+  // Pilih trigger yang aktif (prioritaskan !bacot jika keduanya ada)
+  const activeTrigger = isBacot
+    ? config.BOT_NAME_BACOT
+    : config.BOT_NAME
 
   const chat =
   await message.getChat()
@@ -48,19 +60,25 @@ async function aiCommand(
   const cleanText =
   text
   .replace(
-    config.BOT_NAME,
+    new RegExp(activeTrigger, "gi"),
     ""
   )
   .trim()
 
-  const chatId = message.from
+  // Gunakan chatId + mode sebagai key memori yang terpisah
+  const chatId = `${message.from}:${isBacot ? "bacot" : "normal"}`
 
   // Reset feature
   if (cleanText.toLowerCase() === "reset") {
     let memory = loadMemory()
     delete memory[chatId]
     saveMemory(memory)
-    await message.reply("memori chat room ini udah dihapus bang 🧼")
+
+    const resetMsg = isBacot
+      ? "memori mode bacot dihapus anjg 🧼"
+      : "memori percakapan normal sudah direset ✅"
+
+    await message.reply(resetMsg)
     return
   }
 
@@ -98,14 +116,14 @@ async function aiCommand(
         },
         generationConfig: {
           maxOutputTokens: 1000,
-          temperature: 1.0
+          temperature: isBacot ? 1.0 : 0.7
         }
       },
       {
         headers: {
           "Content-Type": "application/json"
         },
-        timeout: 15000 // Gemini sangat cepat, 15 detik sudah sangat cukup
+        timeout: 15000
       }
     )
 
@@ -145,9 +163,11 @@ async function aiCommand(
 
     console.error("Gemini API Error:", err.response?.data || err.message)
 
-    await message.reply(
-      "otak gw ngefreeze 💀"
-    )
+    const errMsg = isBacot
+      ? "otak gw ngefreeze 💀"
+      : "Waduh, ada error nih. Coba lagi ya 😅"
+
+    await message.reply(errMsg)
 
   }
 
