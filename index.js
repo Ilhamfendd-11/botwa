@@ -118,20 +118,22 @@ process.on("unhandledRejection", (reason) => {
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
 
       webVersionCache: {
-        type: "local"
+        type: "remote",
+        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043012667-alpha.html"
       },
 
       puppeteer: {
         ...(executablePath ? { executablePath } : {}),
-        headless: true,
-        args: [
-          ...(process.platform !== "win32" ? chromium.args : []),
+        headless: process.platform === "win32" ? true : chromium.headless,
+        args: process.platform === "win32" ? [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
           "--disable-accelerated-2d-canvas",
           "--no-first-run",
-          "--disable-gpu",
+          "--disable-gpu"
+        ] : [
+          ...chromium.args,
           "--disable-features=LockProfile"
         ]
       }

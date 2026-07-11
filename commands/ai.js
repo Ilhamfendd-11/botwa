@@ -13,6 +13,9 @@ const {
 const config =
 require("../config")
 
+// Global index to track current key for rotation
+let currentKeyIndex = 0;
+
 async function aiCommand(
   message,
   client
@@ -101,31 +104,61 @@ async function aiCommand(
 
   try {
 
-    const response = await axios.post(
-      `${config.API_BASE_URL}/models/${config.AI_MODEL}:generateContent?key=${config.API_KEY}`,
-      {
-        contents: [
-          ...geminiHistory,
+    const keys = config.API_KEYS;
+    if (!keys || keys.length === 0) {
+      throw new Error("No Gemini API keys configured in .env");
+    }
+
+    let response;
+    let success = false;
+    let attempts = 0;
+    let lastError = null;
+
+    while (!success && attempts < keys.length) {
+      const keyIndex = (currentKeyIndex + attempts) % keys.length;
+      const apiKey = keys[keyIndex];
+      attempts++;
+
+      try {
+        response = await axios.post(
+          `${config.API_BASE_URL}/models/${config.AI_MODEL}:generateContent?key=${apiKey}`,
           {
-            role: "user",
-            parts: [{ text: `[${username}]: ${cleanText}` }]
+            contents: [
+              ...geminiHistory,
+              {
+                role: "user",
+                parts: [{ text: `[${username}]: ${cleanText}` }]
+              }
+            ],
+            systemInstruction: {
+              parts: [{ text: personality }]
+            },
+            generationConfig: {
+              maxOutputTokens: 1000,
+              temperature: isBacot ? 1.0 : 0.7
+            }
+          },
+          {
+            headers: {
+              "Content-Type": "application/json"
+            },
+            timeout: 15000
           }
-        ],
-        systemInstruction: {
-          parts: [{ text: personality }]
-        },
-        generationConfig: {
-          maxOutputTokens: 1000,
-          temperature: isBacot ? 1.0 : 0.7
-        }
-      },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        timeout: 15000
+        );
+        success = true;
+        // Rotate index to the next key for the next request
+        currentKeyIndex = (keyIndex + 1) % keys.length;
+      } catch (err) {
+        lastError = err;
+        const statusCode = err.response?.status;
+        const errorMsg = err.response?.data?.error?.message || err.message;
+        console.warn(`[Gemini API] Key index ${keyIndex} failed (Status: ${statusCode}, Error: ${errorMsg}). Trying next key...`);
       }
-    )
+    }
+
+    if (!success) {
+      throw lastError || new Error("All Gemini API keys failed.");
+    }
 
     let reply = response.data.candidates[0].content.parts[0].text
 
