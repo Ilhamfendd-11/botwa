@@ -91,6 +91,8 @@ process.on("unhandledRejection", (reason) => {
     // ----------------------
 
     let executablePath = ""
+    let hasChromeCodecs = false
+
     if (process.platform === "win32") {
       // Di Windows, cari Chrome lokal atau biarkan kosong agar Puppeteer mendeteksi sendiri
       executablePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
@@ -100,11 +102,32 @@ process.on("unhandledRejection", (reason) => {
       if (!fs.existsSync(executablePath)) {
         executablePath = "" // Biarkan Puppeteer mencari default-nya
       }
+      hasChromeCodecs = true // Windows Chrome / default Puppeteer Chrome has codecs
       console.log("Running on Windows. Using Chrome path:", executablePath || "default Puppeteer Chrome")
     } else {
-      console.log("Getting Chromium executable path via @sparticuz/chromium...")
-      executablePath = await chromium.executablePath()
-      console.log("Chromium path:", executablePath)
+      // Di Linux, coba cari google-chrome-stable terlebih dahulu untuk full codec support
+      const chromePaths = [
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser"
+      ]
+      for (const p of chromePaths) {
+        if (fs.existsSync(p)) {
+          executablePath = p
+          break
+        }
+      }
+
+      if (executablePath) {
+        hasChromeCodecs = executablePath.toLowerCase().includes("chrome")
+        console.log("Found full Chrome/Chromium installation at:", executablePath, "Codecs:", hasChromeCodecs)
+      } else {
+        console.log("Full Chrome/Chromium not found. Getting Chromium executable path via @sparticuz/chromium...")
+        executablePath = await chromium.executablePath()
+        hasChromeCodecs = false // @sparticuz/chromium lacks proprietary codecs
+        console.log("Chromium path:", executablePath)
+      }
     }
 
     // ----------------------
@@ -124,7 +147,7 @@ process.on("unhandledRejection", (reason) => {
 
       puppeteer: {
         ...(executablePath ? { executablePath } : {}),
-        headless: process.platform === "win32" ? true : chromium.headless,
+        headless: process.platform === "win32" ? true : (executablePath.toLowerCase().includes("chrome") ? true : chromium.headless),
         args: process.platform === "win32" ? [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -132,13 +155,25 @@ process.on("unhandledRejection", (reason) => {
           "--disable-accelerated-2d-canvas",
           "--no-first-run",
           "--disable-gpu"
-        ] : [
-          ...chromium.args,
-          "--disable-features=LockProfile"
-        ]
+        ] : (
+          executablePath.toLowerCase().includes("chrome")
+            ? [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-first-run"
+              ]
+            : [
+                ...chromium.args,
+                "--disable-features=LockProfile"
+              ]
+        )
       }
 
     })
+
+    client.hasChromeCodecs = hasChromeCodecs
 
     // ----------------------
     // GRACEFUL SHUTDOWN

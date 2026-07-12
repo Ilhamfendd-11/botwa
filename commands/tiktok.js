@@ -85,39 +85,52 @@ async function tiktokCommand(
     const videoUrl = data.play
 
     if (!videoUrl) {
-
       return message.reply(
         "gagal ambil video/gambar tiktok 😭"
       )
-
     }
 
-    const media =
-    await MessageMedia
-    .fromUrl(
-
+    const media = await MessageMedia.fromUrl(
       videoUrl,
-
       {
         unsafeMime: true,
         filename: "tiktok.mp4"
       }
-
     )
 
-    await client.sendMessage(
+    // Deteksi ukuran file dan ketersediaan codec Chrome
+    const fileSize = media.data ? (media.data.length * 0.75) : 0
+    const sizeLimit = 16 * 1024 * 1024 // 16MB
+    const useDocument = !client.hasChromeCodecs || fileSize > sizeLimit
 
-      message.from,
+    console.log(`TikTok Video - Size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB, hasChromeCodecs: ${client.hasChromeCodecs}, sending as document: ${useDocument}`)
 
-      media,
-
-      {
-        caption:
-        "nih bang 😭🔥",
-        sendVideoAsGif: false
+    try {
+      if (useDocument) {
+        await client.sendMessage(
+          message.from,
+          media,
+          {
+            sendMediaAsDocument: true,
+            caption: "nih bang 😭🔥"
+          }
+        )
+      } else {
+        await client.sendMessage(
+          message.from,
+          media,
+          {
+            caption: "nih bang 😭🔥",
+            sendVideoAsGif: false
+          }
+        )
       }
-
-    )
+    } catch (sendErr) {
+      console.error("Gagal mengirim video TikTok:", sendErr.message)
+      await message.reply(
+        `gagal kirim media secara langsung 😭\ndownload manual di sini bang:\n${videoUrl}`
+      )
+    }
 
   } catch (err) {
 

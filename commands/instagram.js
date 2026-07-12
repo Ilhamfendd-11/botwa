@@ -245,20 +245,46 @@ async function instagramCommand(
           }
         )
 
-        await client.sendMessage(
-          message.from,
-          media,
-          {
-            caption: i === 0 ? "nih bang 😭🔥" : "",
-            sendVideoAsGif: false
-          }
-        )
+        const fileSize = media.data ? (media.data.length * 0.75) : 0
+        const sizeLimit = 16 * 1024 * 1024 // 16MB
+        const useDocument = isVideo && (!client.hasChromeCodecs || fileSize > sizeLimit)
+
+        if (isVideo) {
+          console.log(`Instagram Video - Size: ${(fileSize / (1024 * 1024)).toFixed(2)} MB, hasChromeCodecs: ${client.hasChromeCodecs}, sending as document: ${useDocument}`)
+        }
+
+        if (useDocument) {
+          await client.sendMessage(
+            message.from,
+            media,
+            {
+              sendMediaAsDocument: true,
+              caption: i === 0 ? "nih bang 😭🔥" : ""
+            }
+          )
+        } else {
+          await client.sendMessage(
+            message.from,
+            media,
+            {
+              caption: i === 0 ? "nih bang 😭🔥" : "",
+              sendVideoAsGif: false
+            }
+          )
+        }
 
       } catch (mediaErr) {
         console.log(
           `Gagal kirim media ke-${i + 1}:`,
           mediaErr.message
         )
+        try {
+          await message.reply(
+            `gagal kirim media ke-${i + 1} secara langsung 😭\ndownload manual di sini bang:\n${item.url}`
+          )
+        } catch (replyErr) {
+          console.log("Gagal kirim fallback reply:", replyErr.message)
+        }
       }
 
     }
