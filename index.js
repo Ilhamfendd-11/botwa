@@ -98,29 +98,6 @@ process.on("unhandledRejection", (reason) => {
       }
     }
 
-    // TEMPORARY DEBUG: Fetch active versions from wa-version registry
-    const https = require("https");
-    https.get("https://raw.githubusercontent.com/wppconnect-team/wa-version/main/versions.json", (res) => {
-      let data = "";
-      res.on("data", chunk => { data += chunk; });
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(data);
-          const list = json.versions.filter(v => {
-            const exp = new Date(v.expire);
-            return exp > new Date("2026-08-01") && exp < new Date("2026-09-01");
-          });
-          console.log("=== ACTIVE JUNE VERSIONS (EXPIRE IN AUGUST) ===");
-          list.forEach(v => console.log(`VERSION: ${v.version} | EXPIRE: ${v.expire}`));
-          console.log("===============================================");
-        } catch (e) {
-          console.log("Debug fetch parsing failed:", e.message);
-        }
-      });
-    }).on("error", (e) => {
-      console.log("Debug fetch request failed:", e.message);
-    });
-
     // ----------------------
     // CHROMIUM SETUP
     // ----------------------
@@ -175,9 +152,11 @@ process.on("unhandledRejection", (reason) => {
 
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
 
+      webVersion: "2.3000.1042015614-alpha",
+
       webVersionCache: {
         type: "remote",
-        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html"
+        remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1042015614-alpha.html"
       },
 
       puppeteer: {
