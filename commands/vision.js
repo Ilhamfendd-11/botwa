@@ -1,5 +1,6 @@
 const { callVisionAI } = require("../utils/visionService")
 const { performOCR } = require("../utils/ocr")
+const { sendFormattedReply } = require("../utils/formatter")
 
 // 15MB size limit
 const FILE_SIZE_LIMIT = 15 * 1024 * 1024
@@ -136,7 +137,7 @@ async function visionCommand(message, client) {
       throw new Error("EMPTY_REPLY")
     }
 
-    await message.reply(reply)
+    await sendFormattedReply(message, reply)
 
   } catch (err) {
     console.error("[Vision Command] API Error:", err.message)

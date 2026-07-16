@@ -1,5 +1,6 @@
 const { extractTextFromMedia } = require("../utils/pdfReader")
 const { callTextAI } = require("../utils/visionService")
+const { sendFormattedReply } = require("../utils/formatter")
 
 async function documentCommand(message, client) {
   const text = message.body.trim()
@@ -88,7 +89,7 @@ async function documentCommand(message, client) {
       throw new Error("EMPTY_REPLY")
     }
 
-    await message.reply(reply)
+    await sendFormattedReply(message, reply)
 
   } catch (err) {
     console.error("[Document Command] Processing Error:", err.message)

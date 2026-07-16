@@ -1,4 +1,5 @@
 const axios = require("axios")
+const { sendFormattedReply } = require("../utils/formatter")
 
 const {
   bacotPersonality,
@@ -190,7 +191,7 @@ async function aiCommand(
     memory[chatId] = memory[chatId].slice(-10)
     saveMemory(memory)
 
-    await message.reply(reply)
+    await sendFormattedReply(message, reply)
 
   } catch (err) {
 
