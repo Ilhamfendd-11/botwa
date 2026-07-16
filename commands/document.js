@@ -32,7 +32,7 @@ async function documentCommand(message, client) {
       }
     }
   } catch (downloadErr) {
-    console.error("[Document Command] Error downloading media:", downloadErr.message)
+    console.error("[Document Command] Error downloading media:", downloadErr)
     return message.reply("otak gw ngefreeze 😭")
   }
 

@@ -44,7 +44,7 @@ async function visionCommand(message, client) {
       }
     }
   } catch (downloadErr) {
-    console.error("[Vision Command] Error downloading media:", downloadErr.message)
+    console.error("[Vision Command] Error downloading media:", downloadErr)
     return message.reply("otak gw ngefreeze 😭")
   }
 

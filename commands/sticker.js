@@ -8,34 +8,33 @@ async function stickerCommand(
   message,
   client
 ) {
-
-  if (
-    !message.hasMedia
-  ) {
-
-    return message.reply(
-      "reply gambar pake !sticker 😭"
-    )
-
-  }
-
-  const media =
-  await message.downloadMedia()
-
-  await client.sendMessage(
-
-    message.from,
-
-    media,
-
-    {
-      sendMediaAsSticker: true,
-      stickerName: "Tongkrongan",
-      stickerAuthor: "Ilham"
+  try {
+    if (
+      !message.hasMedia
+    ) {
+      return message.reply(
+        "reply gambar pake !sticker 😭"
+      )
     }
 
-  )
+    const media = await message.downloadMedia()
+    if (!media) {
+      return message.reply("gagal download media sticker bang 😭")
+    }
 
+    await client.sendMessage(
+      message.from,
+      media,
+      {
+        sendMediaAsSticker: true,
+        stickerName: "Tongkrongan",
+        stickerAuthor: "Ilham"
+      }
+    )
+  } catch (err) {
+    console.error("[Sticker Command] Error:", err)
+    await message.reply("gagal bikin sticker bang 😭")
+  }
 }
 
 module.exports =
