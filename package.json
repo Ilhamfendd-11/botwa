@@ -23,6 +23,6 @@
     "qrcode-terminal": "^0.12.0",
     "sharp": "^0.34.5",
     "tiktokdl": "^0.0.5",
-    "whatsapp-web.js": "^1.34.7"
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main"
   }
 }

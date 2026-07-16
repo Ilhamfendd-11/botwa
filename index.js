@@ -225,7 +225,7 @@ process.on("unhandledRejection", (reason) => {
             filesize:          d.size,
         };
 
-        console.log("[Monkeypatch] Media payload keys:", Object.keys(mediaPayload).map(k => `${k}=${mediaPayload[k] ? 'ok' : 'MISSING'}`).join(', '));
+        console.log("[Download] Memulai download media bypass IDB...");
 
         if (!mediaPayload.directPath || !mediaPayload.mediaKey) {
             console.error("[Monkeypatch] Missing directPath or mediaKey — cannot download");
