@@ -12,6 +12,8 @@ const stickerCommand = require("./commands/sticker")
 const tiktokCommand = require("./commands/tiktok")
 const imageCommand = require("./commands/image")
 const instagramCommand = require("./commands/instagram")
+const documentCommand = require("./commands/document")
+const visionCommand = require("./commands/vision")
 
 // ======================
 // EXPRESS SERVER
@@ -262,6 +264,25 @@ process.on("unhandledRejection", (reason) => {
       // IMAGE AI
       if (text.startsWith("!img ")) {
         return imageCommand(message, client, text)
+      }
+
+      // VISION AI
+      if (
+        text === "!lihat" || text.startsWith("!lihat ") ||
+        text === "!translate" || text.startsWith("!translate ") ||
+        text === "!ocr" || text.startsWith("!ocr ") ||
+        text === "!jelaskan" || text.startsWith("!jelaskan ") ||
+        text === "!tabel" || text.startsWith("!tabel ")
+      ) {
+        return visionCommand(message, client)
+      }
+
+      // DOCUMENT AI
+      if (
+        text === "!ringkas" || text.startsWith("!ringkas ") ||
+        text === "!tanya" || text.startsWith("!tanya ")
+      ) {
+        return documentCommand(message, client)
       }
 
       // AI CHAT
