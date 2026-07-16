@@ -206,72 +206,35 @@ process.on("unhandledRejection", (reason) => {
     process.on("SIGINT", () => handleShutdown("SIGINT"))
     process.on("SIGTERM", () => handleShutdown("SIGTERM"))
 
-    // MONKEYPATCH DEBUG: Diagnose downloadMedia() errors in Puppeteer
+    // MONKEYPATCH: Bypass IDB lookup — pass media fields directly from Node.js to browser
     const { Message, MessageMedia } = require("whatsapp-web.js")
     Message.prototype.downloadMedia = async function () {
         if (!this.hasMedia) return undefined;
+
+        // Ambil semua field media dari objek pesan Node.js (_data menyimpan data raw dari browser)
+        const d = this._data;
+        const mediaPayload = {
+            directPath:        d.directPath,
+            encFilehash:       d.encFilehash,
+            filehash:          d.filehash,
+            mediaKey:          d.mediaKey,
+            mediaKeyTimestamp: d.mediaKeyTimestamp,
+            type:              d.type,
+            mimetype:          d.mimetype,
+            filename:          d.filename,
+            filesize:          d.size,
+        };
+
+        console.log("[Monkeypatch] Media payload keys:", Object.keys(mediaPayload).map(k => `${k}=${mediaPayload[k] ? 'ok' : 'MISSING'}`).join(', '));
+
+        if (!mediaPayload.directPath || !mediaPayload.mediaKey) {
+            console.error("[Monkeypatch] Missing directPath or mediaKey — cannot download");
+            return undefined;
+        }
+
         try {
-            const result = await this.client.pupPage.evaluate(async (msgId) => {
+            const result = await this.client.pupPage.evaluate(async (payload) => {
                 try {
-                    if (!window.require) {
-                        return { error: "window.require is not defined" };
-                    }
-                    let WAWebCollections;
-                    try {
-                        WAWebCollections = window.require('WAWebCollections');
-                    } catch (err) {
-                        return { error: "Failed to require WAWebCollections", message: err.message || String(err) };
-                    }
-                    let parsedKey = msgId;
-                    try {
-                        const WAWebMsgKey = window.require('WAWebCollections').MsgKey || window.require('WAWebMsgKey');
-                        if (WAWebMsgKey) {
-                            if (typeof WAWebMsgKey.fromString === 'function') {
-                                parsedKey = WAWebMsgKey.fromString(msgId);
-                            } else if (typeof WAWebMsgKey.fromSerialized === 'function') {
-                                parsedKey = WAWebMsgKey.fromSerialized(msgId);
-                            } else {
-                                parsedKey = new WAWebMsgKey(msgId);
-                            }
-                        }
-                    } catch (keyErr) {
-                        // ignore and fall back to string
-                    }
-
-                    const msg = WAWebCollections.Msg.get(parsedKey) ||
-                        WAWebCollections.Msg.get(msgId) ||
-                        (await WAWebCollections.Msg.getMessagesById([parsedKey]))?.messages?.[0] ||
-                        (await WAWebCollections.Msg.getMessagesById([msgId]))?.messages?.[0];
-
-                    if (!msg) {
-                        return { error: "Message not found in browser collections" };
-                    }
-                    if (!msg.mediaData) {
-                        return { error: "mediaData is missing on message" };
-                    }
-                    if (msg.mediaData.mediaStage === 'REUPLOADING') {
-                        return { error: "mediaStage is REUPLOADING" };
-                    }
-                    
-                    if (msg.mediaData.mediaStage !== 'RESOLVED') {
-                        try {
-                            await msg.downloadMedia({
-                                downloadEvenIfExpensive: true,
-                                rmrReason: 1,
-                            });
-                        } catch (downloadErr) {
-                            return { 
-                                error: "msg.downloadMedia threw error", 
-                                message: downloadErr.message || String(downloadErr),
-                                mediaStage: msg.mediaData.mediaStage
-                            };
-                        }
-                    }
-
-                    if (msg.mediaData.mediaStage.includes('ERROR') || msg.mediaData.mediaStage === 'FETCHING') {
-                        return { error: `mediaStage invalid: ${msg.mediaData.mediaStage}`, mediaStage: msg.mediaData.mediaStage };
-                    }
-
                     let WAWebDownloadManager;
                     try {
                         WAWebDownloadManager = window.require('WAWebDownloadManager');
@@ -279,48 +242,40 @@ process.on("unhandledRejection", (reason) => {
                         return { error: "Failed to require WAWebDownloadManager", message: err.message || String(err) };
                     }
 
-                    try {
-                        const mockQpl = {
-                            addAnnotations: function () { return this; },
-                            addPoint: function () { return this; },
-                        };
-                        const decryptedMedia = await WAWebDownloadManager.downloadManager.downloadAndMaybeDecrypt({
-                            directPath: msg.directPath,
-                            encFilehash: msg.encFilehash,
-                            filehash: msg.filehash,
-                            mediaKey: msg.mediaKey,
-                            mediaKeyTimestamp: msg.mediaKeyTimestamp,
-                            type: msg.type,
-                            signal: new AbortController().signal,
-                            downloadQpl: mockQpl,
-                        });
+                    const mockQpl = {
+                        addAnnotations: function () { return this; },
+                        addPoint: function () { return this; },
+                    };
 
-                        const data = await window.WWebJS.arrayBufferToBase64Async(decryptedMedia);
-                        return {
-                            data,
-                            mimetype: msg.mimetype,
-                            filename: msg.filename,
-                            filesize: msg.size,
-                        };
-                    } catch (decryptErr) {
-                        return { 
-                            error: "downloadAndMaybeDecrypt failed", 
-                            message: decryptErr.message || String(decryptErr),
-                            mediaStage: msg.mediaData.mediaStage
-                        };
-                    }
+                    const decryptedMedia = await WAWebDownloadManager.downloadManager.downloadAndMaybeDecrypt({
+                        directPath:        payload.directPath,
+                        encFilehash:       payload.encFilehash,
+                        filehash:          payload.filehash,
+                        mediaKey:          payload.mediaKey,
+                        mediaKeyTimestamp: payload.mediaKeyTimestamp,
+                        type:              payload.type,
+                        signal:            new AbortController().signal,
+                        downloadQpl:       mockQpl,
+                    });
+
+                    const data = await window.WWebJS.arrayBufferToBase64Async(decryptedMedia);
+                    return {
+                        data,
+                        mimetype: payload.mimetype,
+                        filename: payload.filename,
+                        filesize: payload.filesize,
+                    };
                 } catch (e) {
-                    return { 
-                        error: "Unhandled browser evaluate exception", 
+                    return {
+                        error: "Browser evaluate failed",
                         message: e.message || String(e),
-                        stack: e.stack
                     };
                 }
-            }, this.id._serialized);
+            }, mediaPayload);
 
             if (result && result.error) {
-                console.error("[Monkeypatch Debug] DETAILED BROWSER ERROR:", result);
-                throw new Error(`BrowserError: ${result.error} | Message: ${result.message} | Stage: ${result.mediaStage}`);
+                console.error("[Monkeypatch] Browser error:", result.error, "|", result.message);
+                throw new Error(`${result.error}: ${result.message}`);
             }
 
             if (!result || !result.data) return undefined;
