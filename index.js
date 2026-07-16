@@ -88,6 +88,17 @@ process.on("unhandledRejection", (reason) => {
     deleteLocks(SESSION_DIR)
     console.log("Lock cleanup done")
 
+    // Hapus .wwebjs_cache untuk membersihkan cache WhatsApp Web lama yang rusak
+    const CACHE_DIR = path.join(process.cwd(), ".wwebjs_cache")
+    if (fs.existsSync(CACHE_DIR)) {
+      try {
+        fs.rmSync(CACHE_DIR, { recursive: true, force: true })
+        console.log("Deleted old .wwebjs_cache directory successfully.")
+      } catch (err) {
+        console.log("Failed to delete .wwebjs_cache:", err.message)
+      }
+    }
+
     // ----------------------
     // CHROMIUM SETUP
     // ----------------------
