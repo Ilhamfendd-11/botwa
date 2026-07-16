@@ -222,7 +222,25 @@ process.on("unhandledRejection", (reason) => {
                     } catch (err) {
                         return { error: "Failed to require WAWebCollections", message: err.message || String(err) };
                     }
-                    const msg = WAWebCollections.Msg.get(msgId) ||
+                    let parsedKey = msgId;
+                    try {
+                        const WAWebMsgKey = window.require('WAWebCollections').MsgKey || window.require('WAWebMsgKey');
+                        if (WAWebMsgKey) {
+                            if (typeof WAWebMsgKey.fromString === 'function') {
+                                parsedKey = WAWebMsgKey.fromString(msgId);
+                            } else if (typeof WAWebMsgKey.fromSerialized === 'function') {
+                                parsedKey = WAWebMsgKey.fromSerialized(msgId);
+                            } else {
+                                parsedKey = new WAWebMsgKey(msgId);
+                            }
+                        }
+                    } catch (keyErr) {
+                        // ignore and fall back to string
+                    }
+
+                    const msg = WAWebCollections.Msg.get(parsedKey) ||
+                        WAWebCollections.Msg.get(msgId) ||
+                        (await WAWebCollections.Msg.getMessagesById([parsedKey]))?.messages?.[0] ||
                         (await WAWebCollections.Msg.getMessagesById([msgId]))?.messages?.[0];
 
                     if (!msg) {
