@@ -17,7 +17,8 @@ async function stickerCommand(
       )
     }
 
-    const media = await message.downloadMedia()
+    const { downloadMediaWithRetry } = require("../utils/downloadHelper")
+    const media = await downloadMediaWithRetry(message)
     if (!media) {
       return message.reply("gagal download media sticker bang 😭")
     }

@@ -33,13 +33,14 @@ async function visionCommand(message, client) {
   let media = null
   let isMediaInQuoted = false
 
+  const { downloadMediaWithRetry } = require("../utils/downloadHelper")
   try {
     if (message.hasMedia) {
-      media = await message.downloadMedia()
+      media = await downloadMediaWithRetry(message)
     } else if (message.hasQuotedMsg) {
       const quotedMsg = await message.getQuotedMessage()
       if (quotedMsg.hasMedia) {
-        media = await quotedMsg.downloadMedia()
+        media = await downloadMediaWithRetry(quotedMsg)
         isMediaInQuoted = true
       }
     }
