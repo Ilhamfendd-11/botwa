@@ -305,8 +305,81 @@ process.on("unhandledRejection", (reason) => {
     // READY
     // ======================
 
-    client.on("ready", () => {
+    client.on("ready", async () => {
       console.log("BOT READY")
+
+      // ===================================================
+      // PATCH BROWSER: Fix WWebJS.getChat agar tidak crash
+      // WAWebFindChatAction.findOrCreateLatestChat() rusak
+      // di versi WA Web saat ini — kita wrap dengan try/catch
+      // sehingga fallback ke Chat.get() dari memory.
+      // Ini memperbaiki: reply(), sendMessage(), getChat(),
+      // sendStateTyping(), dan semua operasi lain yang
+      // bergantung pada getChatById/WWebJS.getChat
+      // ===================================================
+      try {
+        await client.pupPage.evaluate(() => {
+          const origGetChat = window.WWebJS.getChat.bind(window.WWebJS)
+          window.WWebJS.getChat = async (chatId, opts = {}) => {
+            // Coba cara normal dulu
+            try {
+              const isChannel = /@\w*newsletter\b/.test(chatId)
+              const chatWid = window.require('WAWebWidFactory').createWid(chatId)
+
+              if (isChannel) {
+                // Channel tidak bermasalah, biarkan jalan normal
+                return await origGetChat(chatId, opts)
+              }
+
+              // Ambil dari in-memory collection dulu
+              let chat = window.require('WAWebCollections').Chat.get(chatWid)
+
+              if (!chat) {
+                // Coba findOrCreateLatestChat tapi dengan proteksi error
+                try {
+                  const result = await window
+                    .require('WAWebFindChatAction')
+                    .findOrCreateLatestChat(chatWid)
+                  chat = result?.chat || null
+                } catch (findErr) {
+                  console.warn('[WWebJS.getChat PATCH] findOrCreateLatestChat gagal:', findErr.message)
+                  chat = null
+                }
+              }
+
+              if (!chat) return null
+
+              const getAsModel = opts.getAsModel !== false
+              if (!getAsModel) return chat
+
+              try {
+                return await window.WWebJS.getChatModel(chat)
+              } catch (modelErr) {
+                console.warn('[WWebJS.getChat PATCH] getChatModel gagal:', modelErr.message)
+                // Return model minimal agar sendMessage tidak crash
+                const s = chat.serialize ? chat.serialize() : {}
+                return {
+                  ...s,
+                  id: chat.id,
+                  formattedTitle: chat.formattedTitle || chatId,
+                  isGroup: !!chat.groupMetadata,
+                  isMuted: false,
+                  isReadOnly: false,
+                  isLocked: false,
+                  lastMessage: null,
+                }
+              }
+            } catch (e) {
+              console.warn('[WWebJS.getChat PATCH] Error umum:', e.message)
+              return null
+            }
+          }
+          console.log('[PATCH] WWebJS.getChat berhasil dipatch')
+        })
+        console.log('[PATCH] Browser getChat patch berhasil diinjeksi')
+      } catch (patchErr) {
+        console.error('[PATCH] Gagal inject browser patch:', patchErr.message)
+      }
     })
 
     // ======================

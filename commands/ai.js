@@ -44,17 +44,17 @@ async function aiCommand(
     ? config.BOT_NAME_BACOT
     : config.BOT_NAME
 
-  const chat =
-  await message.getChat()
+  // Ambil username dan tampilkan typing indicator (best effort)
+  let username = "orang"
+  try {
+    const contact = await message.getContact()
+    username = contact.pushname || "orang"
+  } catch (_) {}
 
-  const contact =
-  await message.getContact()
-
-  const username =
-  contact.pushname ||
-  "orang"
-
-  await chat.sendStateTyping()
+  try {
+    const chat = await message.getChat()
+    await chat.sendStateTyping()
+  } catch (_) {}
 
   // ======================
   // CLEAN MESSAGE

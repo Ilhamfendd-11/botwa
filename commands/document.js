@@ -64,8 +64,11 @@ async function documentCommand(message, client) {
     return message.reply("contoh:\n!tanya Apa isi bab metode?")
   }
 
-  const chat = await message.getChat()
-  await chat.sendStateTyping()
+  // Tampilkan typing indicator (best effort, jangan crash jika gagal)
+  try {
+    const chat = await message.getChat()
+    await chat.sendStateTyping()
+  } catch (_) {}
 
   try {
     // 3. Extract text using pdfReader

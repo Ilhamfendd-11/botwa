@@ -86,8 +86,11 @@ async function visionCommand(message, client) {
     .replace(/!b\b/gi, "")
     .trim()
 
-  const chat = await message.getChat()
-  await chat.sendStateTyping()
+  // Tampilkan typing indicator (best effort, jangan crash jika gagal)
+  try {
+    const chat = await message.getChat()
+    await chat.sendStateTyping()
+  } catch (_) {}
 
   try {
     let reply = ""
